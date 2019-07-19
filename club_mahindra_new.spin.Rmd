@@ -1,0 +1,212 @@
+
+```{r }
+# packages used
+
+library("tidyverse")
+library("ROCR")
+library("car")
+library("corrplot")
+library("caret")
+library("caTools")
+
+setwd("C:/Users/SwaroopKM99/Documents/R/R_working_directory")
+
+club = read.csv("C:/Users/SwaroopKM99/Documents/R/R_working_directory/Mahindra club/train11.csv", header = T,
+                sep = ",")
+
+# To see the top 6 value of the file
+head(club)
+
+# to see no. of missing values in the file in total
+sum(is.na(club))
+
+# to see the dimension of the file, no. of rows and no. of columns
+dim(club)
+
+# it gives the structure of the file
+str(club)
+
+# to see the description of the file
+summary(club)
+
+# treating the missing value in variable seasin_holidayed_code & state_code_residnce 
+getmode = function(v) {
+  uniqv = unique(v)
+  uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+result1 = getmode(club$season_holidayed_code)
+print(result1)
+club$season_holidayed_code[is.na(club$season_holidayed_code)] = result1
+
+getmode = function(v) {
+  uniqv = unique(v)
+  uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+result2 = getmode(club$state_code_residence)
+print(result2)
+club$state_code_residence[is.na(club$state_code_residence)] = result2
+
+# Creating dummy variables 
+
+club$member_age_buckets_A = ifelse(club$member_age_buckets == "A", 1 ,0)
+club$member_age_buckets_B = ifelse(club$member_age_buckets == "B", 1 ,0)
+club$member_age_buckets_C = ifelse(club$member_age_buckets == "C", 1 ,0)
+club$member_age_buckets_D = ifelse(club$member_age_buckets == "D", 1 ,0)
+club$member_age_buckets_E = ifelse(club$member_age_buckets == "E", 1 ,0)
+club$member_age_buckets_F = ifelse(club$member_age_buckets == "F", 1 ,0)
+club$member_age_buckets_G = ifelse(club$member_age_buckets == "G", 1 ,0)
+club$member_age_buckets_H = ifelse(club$member_age_buckets == "H", 1 ,0)
+club$member_age_buckets_I = ifelse(club$member_age_buckets == "I", 1 ,0)
+club$member_age_buckets_J = ifelse(club$member_age_buckets == "J", 1 ,0)
+
+club$reservationstatusid_code_A = ifelse(club$reservationstatusid_code == "A", 1, 0)
+club$reservationstatusid_code_B = ifelse(club$reservationstatusid_code == "B", 1, 0)
+club$reservationstatusid_code_C = ifelse(club$reservationstatusid_code == "C", 1, 0)
+club$reservationstatusid_code_D = ifelse(club$reservationstatusid_code == "D", 1, 0)
+
+club$cluster_code_A = ifelse(club$cluster_code == "A", 1, 0)
+club$cluster_code_B = ifelse(club$cluster_code == "B", 1, 0)
+club$cluster_code_C = ifelse(club$cluster_code == "C", 1, 0)
+club$cluster_code_D = ifelse(club$cluster_code == "D", 1, 0)
+club$cluster_code_E = ifelse(club$cluster_code == "E", 1, 0)
+club$cluster_code_F = ifelse(club$cluster_code == "F", 1, 0)
+
+# Removing variable member_id & resort_id as they are alphanumeric and creating factor error so i have created unique id for both and will ise them instead
+# checkout date and checking date are not required as calculated column by subtracting both are created
+
+club$memberid = NULL
+club$resort_id_unique = NULL
+club$checkin_date = NULL
+club$checkout_date = NULL
+club$booking_date = NULL
+club$reservation_id = NULL
+club$cluster_code = NULL
+club$reservationstatusid_code = NULL
+club$member_age_buckets = NULL
+
+# Correlation between variable, first creating subset of numeric values
+
+M = subset(club, select = -c(resort_id))
+cr = cor(M)
+corrplot(cr, type = "lower", method = "number")
+
+# split the train data in training and testing
+
+split = sample.split(club$amount_spent_per_room_night_scaled,SplitRatio = 0.7)
+train_club = subset(club,split=="TRUE")
+test_club = subset(club,split=="FALSE")
+dim(train_club)
+dim(test_club)
+
+# making a base model to understand the data and the model to be design
+
+model = lm(amount_spent_per_room_night_scaled ~ . , data = train_club)
+summary(model)
+
+model01 = lm(amount_spent_per_room_night_scaled ~ Actual_stay_duration+
+               channel_code+main_product_code+numberofadults+numberofchildren+persontravellingid+
+               resort_region_code+resort_type_code+room_type_booked_code+roomnights+
+               season_holidayed_code+state_code_residence+state_code_resort+
+               total_pax+booking_type_code+member_age_buckets_A+member_age_buckets_B+
+               member_age_buckets_D+member_age_buckets_E+member_age_buckets_F+member_age_buckets_H+
+               cluster_code_A+cluster_code_B+
+               cluster_code_C+cluster_code_D+cluster_code_E+memberid_unique+resort_id,data = train_club)
+summary(model01)
+
+model01$fitted.values
+
+#hetroescadicity
+plot(model01, col ="blue")
+plot(model01$fitted.values, model01$residuals)
+
+#Prediction foe testing Dataset
+
+prediction = predict(model01, test_club)
+prediction
+
+plot(test_club$amount_spent_per_room_night_scaled, type = "l", col = "green")
+lines(prediction, type = "l", col = "blue")
+
+
+# Reading the test file for Testing 
+
+test_M = read.csv("C:/Users/SwaroopKM99/Documents/R/R_working_directory/Mahindra club/test.csv", header = T,
+                sep = ",")
+
+test = test_M
+summary(test)
+
+# Treating missing and creating dummy in test file
+# treating the missing value in variable seasin_holidayed_code & state_code_residnce 
+getmode = function(v) {
+  uniqv = unique(v)
+  uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+result12 = getmode(test$season_holidayed_code)
+print(result12)
+test$season_holidayed_code[is.na(test$season_holidayed_code)] = result12
+
+getmode = function(v) {
+  uniqv = unique(v)
+  uniqv[which.max(tabulate(match(v, uniqv)))]
+}
+result22 = getmode(test$state_code_residence)
+print(result22)
+test$state_code_residence[is.na(test$state_code_residence)] = result22
+
+# Creating dummy variables 
+
+test$member_age_buckets_A = ifelse(test$member_age_buckets == "A", 1 ,0)
+test$member_age_buckets_B = ifelse(test$member_age_buckets == "B", 1 ,0)
+test$member_age_buckets_C = ifelse(test$member_age_buckets == "C", 1 ,0)
+test$member_age_buckets_D = ifelse(test$member_age_buckets == "D", 1 ,0)
+test$member_age_buckets_E = ifelse(test$member_age_buckets == "E", 1 ,0)
+test$member_age_buckets_F = ifelse(test$member_age_buckets == "F", 1 ,0)
+test$member_age_buckets_G = ifelse(test$member_age_buckets == "G", 1 ,0)
+test$member_age_buckets_H = ifelse(test$member_age_buckets == "H", 1 ,0)
+test$member_age_buckets_I = ifelse(test$member_age_buckets == "I", 1 ,0)
+test$member_age_buckets_J = ifelse(test$member_age_buckets == "J", 1 ,0)
+
+test$reservationstatusid_code_A = ifelse(test$reservationstatusid_code == "A", 1, 0)
+test$reservationstatusid_code_B = ifelse(test$reservationstatusid_code == "B", 1, 0)
+test$reservationstatusid_code_C = ifelse(test$reservationstatusid_code == "C", 1, 0)
+test$reservationstatusid_code_D = ifelse(test$reservationstatusid_code == "D", 1, 0)
+
+test$cluster_code_A = ifelse(test$cluster_code == "A", 1, 0)
+test$cluster_code_B = ifelse(test$cluster_code == "B", 1, 0)
+test$cluster_code_C = ifelse(test$cluster_code == "C", 1, 0)
+test$cluster_code_D = ifelse(test$cluster_code == "D", 1, 0)
+test$cluster_code_E = ifelse(test$cluster_code == "E", 1, 0)
+test$cluster_code_F = ifelse(test$cluster_code == "F", 1, 0)
+
+# Removing variable member_id & resort_id as they are alphanumeric and creating factor error so i have created unique id for both and will ise them instead
+# checkout date and checking date are not required as calculated column by subtracting both are created
+
+test$memberid = NULL
+test$resort_id_unique = NULL
+test$checkin_date = NULL
+test$checkout_date = NULL
+test$booking_date = NULL
+test$reservation_id = NULL
+test$cluster_code = NULL
+test$reservationstatusid_code = NULL
+test$member_age_buckets = NULL
+
+#Prediction foe testing Dataset
+
+amount_spent_per_room_night_scaled_test = predict(model01, test)
+amount_spent_per_room_night_scaled_test
+
+test_M$amount_spent_per_room_night_scaled = amount_spent_per_room_night_scaled_test
+
+Final_solution = subset(test_M, select = c(reservation_id,amount_spent_per_room_night_scaled))
+
+#write.csv(Final_solution , file = "Final Solution.csv")
+```
+
+
+---
+title: "club_mahindra_new.R"
+author: "SwaroopKM99"
+date: "2019-05-05"
+---
